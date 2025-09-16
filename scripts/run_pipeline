@@ -1,0 +1,16 @@
+"""
+Runner: Bronze -> Silver -> Gold (in sequence).
+"""
+from __future__ import annotations
+from scripts.run_bronze import main as run_bronze
+from scripts.run_silver import main as run_silver
+from scripts.run_gold import main as run_gold
+
+def main() -> None:
+    run_bronze()
+    run_silver()
+    run_gold()
+    print("[runner] pipeline done.")
+
+if __name__ == "__main__":
+    main()

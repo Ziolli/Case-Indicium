@@ -1,70 +1,60 @@
+"""
+Bronze ingestion: read CSVs (by year) and build bronze.raw_all.
+
+Keeps data as raw as possible; no heavy transformations here.
+"""
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
+from case_indicium.utils.config import (
+    DUCKDB_PATH,
+    SCHEMA_BRONZE,
+    BRONZE_TABLE,
+    DATA_URLS_PATH,
+)
+from case_indicium.utils.duck import connect
+from case_indicium.utils.io import load_year_url_manifest
 
-import duckdb
 
-
-def _is_remote(url: str) -> bool:
-    """Return True if the URL refers to a remote resource (http/https/s3)."""
-    return url.startswith(("http://", "https://", "s3://"))
-
-
-def ingest_bronze_from_manifest(manifest_path: str | Path, duckdb_path: str | Path) -> None:
-    """Create/replace Bronze tables in DuckDB from a year->URL manifest.
-
-    It creates one table per year (e.g., `raw_2019`) and a union table `raw_all`.
-    We set the active schema to `srag` to avoid the catalog/schema ambiguity.
-
-    Args:
-        manifest_path: Path to the JSON mapping year strings to CSV URLs.
-        duckdb_path: Path to the DuckDB database file to write to.
-
-    Returns:
-        None. Tables are created/overwritten inside the DuckDB database.
-
-    Raises:
-        FileNotFoundError: If the manifest file does not exist.
-        duckdb.Error: If any DuckDB statement fails.
-        json.JSONDecodeError: If the manifest is invalid JSON.
+def build_bronze_from_manifest(manifest_path=DATA_URLS_PATH, *, db_path=DUCKDB_PATH) -> None:
     """
-    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
-    years_sorted = sorted(manifest.keys(), key=int)
+    Build bronze.raw_all by UNION ALL BY NAME over yearly CSVs (HTTP).
 
-    con = duckdb.connect(str(duckdb_path))
+    Notes:
+        - ALL_VARCHAR=TRUE: read all columns as TEXT in Bronze (robust to dirty values).
+        - SAMPLE_SIZE=-1: scan full file for consistent parsing options.
+        - DELIM=';': SIVEP CSVs usam ';' (padroniza leitura).
+        - Tipagem/conversões ficam para a Silver.
+    """
+    manifest: Dict[str, str] = load_year_url_manifest(manifest_path)
 
-    # Create the schema and set it as the active schema to avoid ambiguity.
-    con.execute("CREATE SCHEMA IF NOT EXISTS srag;")
-    con.execute("SET schema 'srag';")
+    # (year, url) ordenado
+    items: List[Tuple[int, str]] = sorted(((int(y), url) for y, url in manifest.items()),
+                                          key=lambda t: t[0])
 
-    if any(_is_remote(u) for u in manifest.values()):
-        con.execute("INSTALL httpfs;")
-        con.execute("LOAD httpfs;")
-
-    raw_tables: List[str] = []
-
-    for year in years_sorted:
-        url = manifest[year]
-        print(f"[bronze] {year} <- {url}")
-        con.execute(f"""
-            CREATE OR REPLACE TABLE raw_{int(year)} AS
-            SELECT
-              CAST({int(year)} AS INTEGER) AS year,
-              '{url}'::TEXT AS source_url,
-              now()::TIMESTAMP AS ingested_at,
-              *
+    # Monta cadeia de UNION ALL BY NAME lendo cada ano como VARCHAR
+    selects: List[str] = []
+    for year, url in items:
+        selects.append(
+            # header=true + all_varchar=true evita ConversionException
+            f"""
+            SELECT *, {year}::INT AS year
             FROM read_csv_auto(
               '{url}',
-              header = true,
-              sample_size = -1,
-              ignore_errors = true
-            );
-        """)
-        raw_tables.append(f"raw_{year}")
+              HEADER=TRUE,
+              DELIM=';',
+              SAMPLE_SIZE=-1,
+              ALL_VARCHAR=TRUE
+            )
+            """.strip()
+        )
 
-    union_sql = " \nUNION ALL\n".join(f"SELECT * FROM {t}" for t in raw_tables)
-    con.execute(f"CREATE OR REPLACE TABLE raw_all AS {union_sql};")
+    union_sql = "\nUNION ALL BY NAME\n".join(selects)
 
-    con.close()
+    # Escreve tabela bronze.raw_all
+    with connect(db_path, read_only=False, schema=SCHEMA_BRONZE) as con:
+        con.execute(f"DROP TABLE IF EXISTS {BRONZE_TABLE};")
+        con.execute(f"CREATE TABLE {BRONZE_TABLE} AS\n{union_sql};")
+
+        n = con.execute(f"SELECT COUNT(*) FROM {BRONZE_TABLE};").fetchone()[0]
+        print(f"[bronze] created {SCHEMA_BRONZE}.{BRONZE_TABLE} rows={n}")

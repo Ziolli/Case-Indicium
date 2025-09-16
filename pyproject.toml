@@ -33,3 +33,8 @@ dev = [
     "jupyterlab (>=4.4.7,<5.0.0)",
     "ipykernel (>=6.30.1,<7.0.0)"
 ]
+[tool.poetry.scripts]
+etl-bronze = "scripts.run_bronze:main"
+etl-silver = "scripts.run_silver:main"
+etl-gold   = "scripts.run_gold:main"
+etl-all    = "scripts.run_pipeline:main"
