@@ -1,0 +1,6 @@
+[theme]
+base="dark"
+primaryColor="#22D3EE"             # cyan-400
+backgroundColor="#0F172A"          # slate-900
+secondaryBackgroundColor="#111827" # gray-900
+textColor="#E5E7EB"                # gray-200

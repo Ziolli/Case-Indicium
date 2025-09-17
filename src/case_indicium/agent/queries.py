@@ -6,7 +6,7 @@ Design goals
 - Anchor all rolling windows to the last available date in the dataset (as_of).
 - Be robust to missing recent data (COALESCE, guarded divisions).
 - Never average UF-level percentages for national numbers (always re-aggregate numerators/denominators).
-- Keep UF-scoped variants parameterized via :uf.
+- Keep UF-scoped variants parameterized via $uf.
 """
 
 
@@ -68,7 +68,7 @@ WITH as_of AS (
 d AS (
   SELECT day, SUM(cases) AS cases
   FROM gold.fct_daily_uf
-  WHERE uf = :uf
+  WHERE uf = $uf
   GROUP BY day
 ),
 w AS (
@@ -146,7 +146,7 @@ agg AS (
     COALESCE(SUM(vaccinated_cases), 0)  AS vaccinated_cases_30d
   FROM gold.fct_daily_uf t
   CROSS JOIN as_of a
-  WHERE t.uf = :uf
+  WHERE t.uf = $uf
     AND t.day > a.d - INTERVAL 30 DAY AND t.day <= a.d
 )
 SELECT
@@ -196,7 +196,7 @@ WITH as_of AS (
 SELECT t.day, SUM(t.cases) AS cases
 FROM gold.fct_daily_uf t
 CROSS JOIN as_of a
-WHERE t.uf = :uf
+WHERE t.uf = $uf
   AND t.day > a.d - INTERVAL 30 DAY AND t.day <= a.d
 GROUP BY t.day
 ORDER BY t.day;
@@ -232,7 +232,7 @@ WITH as_of AS (
 SELECT t.month, SUM(t.cases) AS cases
 FROM gold.fct_monthly_uf t
 CROSS JOIN as_of a
-WHERE t.uf = :uf
+WHERE t.uf = $uf
   AND t.month >= a.m - INTERVAL 11 MONTH
   AND t.month <= a.m
 GROUP BY t.month
