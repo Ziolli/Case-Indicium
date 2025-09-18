@@ -252,8 +252,7 @@ FROM gold.fct_daily_uf t
 CROSS JOIN as_of a
 WHERE t.day > a.d - INTERVAL 30 DAY AND t.day <= a.d
 GROUP BY uf
-ORDER BY cases_30d DESC
-LIMIT 12;
+ORDER BY cases_30d DESC;
 """
 
 SQL_CFR_UF_90D = """
@@ -274,6 +273,5 @@ SELECT uf,
             THEN 100.0 * deaths_30d / closed_cases_30d
             ELSE NULL END AS cfr_closed_30d_pct
 FROM agg
-ORDER BY cfr_closed_30d_pct DESC NULLS LAST
-LIMIT 12;
+ORDER BY cfr_closed_30d_pct DESC NULLS LAST;
 """
