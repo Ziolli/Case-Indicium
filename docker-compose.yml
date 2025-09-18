@@ -1,0 +1,29 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: dockerfile
+    env_file:
+      - ./.env
+    environment:
+      RUN_PIPELINE: "0"          # o app não roda ETL
+      DATA_DIR: /app/data        # caminho dentro do container
+    volumes:
+      - ./data:/app/data         # persistência no host
+    ports:
+      - "8501:8501"
+    tty: true
+
+  etl:
+    build:
+      context: .
+      dockerfile: dockerfile
+    env_file:
+      - ./.env
+    environment:
+      RUN_PIPELINE: "1"          # este serviço roda o ETL e sai
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data
+    entrypoint: ["/usr/bin/tini", "--"]
+    command: ["/entrypoint.sh"]

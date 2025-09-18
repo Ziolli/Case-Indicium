@@ -329,12 +329,3 @@ if user_text:
                 st.code(sql_used, language="sql")
         except Exception as exc:
             st.warning(f"Não consegui renderizar a tabela completa: {exc}")
-
-# -----------------------------------------------------------------------------
-# Quick env diagnostics
-# -----------------------------------------------------------------------------
-
-with st.expander("Diagnóstico rápido de ambiente"):
-    tav = "✅" if os.getenv("TAVILY_API_KEY") else "—"
-    llm = "✅" if (os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY")) else "—"
-    st.write(f"TAVILY_API_KEY: {tav} | OPENAI/GROQ: {llm}")
