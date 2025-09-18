@@ -46,87 +46,106 @@ O projeto entrega dois componentes principais:
 ## Arquitetura (alto nível)
 
 ```mermaid
-graph TB
-  %% ===== Frontend =====
-  subgraph FE["🌐 Frontend"]
-    FE1[Streamlit UI<br/>Port 8501<br/>src/case_indicium/webapp/app.py]
-  end
+graph LR
 
-  %% ===== Core App =====
-  subgraph CORE["🧠 Core Application (Agente SRAG)"]
-    CORE1[Intent Router<br/>intent_router.py]
-    CORE2[LLM Router / Text Gen<br/>llm_router.py<br/>OpenAI ↔ GROQ]
-    CORE3[NL→SQL Orchestrator<br/>tools.query_nl()]
-    CORE4[Data QA / Glossário<br/>tools.answer_data_question()<br/>tools.glossary_lookup()]
-    CORE5[Relatórios & Tendências<br/>generator.build_report()<br/>tools.get_series()]
-    CORE6[SQLClient<br/>agent/sql_client.py]
-  end
+%% ===== FRONTEND =====
+subgraph FE["Frontend"]
+  FE1["Streamlit UI\n:8501\nsrc/case_indicium/webapp/app.py"]
+end
 
-  %% ===== ELT Pipeline =====
-  subgraph ELT["🛠️ ELT Pipeline (DuckDB)"]
-    ELT1[Bronze<br/>scripts/run_bronze.py]
-    ELT2[Silver<br/>scripts/run_silver.py]
-    ELT3[Gold<br/>scripts/run_gold.py]
-  end
+%% ===== AGENT / CORE =====
+subgraph CORE["Agent Orchestrator"]
+  CORE1["Intent Router\nintent_router.py"]
+  CORE2["LLM Router\nllm_router.py\nProviders: OpenAI, GROQ"]
+  CORE3["Tools Manager"]
+  CORE4["Memory / Context Store"]
+end
 
-  %% ===== Data Layer =====
-  subgraph DATA["💾 Data Layer (DuckDB + Files)"]
-    D0[(data/srag.duckdb)]
-    D1[[bronze.*]]
-    D2[[silver.*]]
-    D3[[gold.fct_daily_uf]]
-    D4[[gold.fct_monthly_uf]]
-    R0[(data/raw/*)]
-  end
+%% ===== TOOLS =====
+subgraph TOOLS["Agent Tools"]
+  T1["NL to SQL Orchestrator\ntools.query_nl()"]
+  T2["Data QA and Glossary\ntools.answer_data_question()\ntools.glossary_lookup()"]
+  T3["Reports and Time Series\ngenerator.build_report()\ntools.get_series()"]
+  T4["SQL Client\nagent/sql_client.py"]
+end
 
-  %% ===== Infra =====
-  subgraph INFRA["🐳 Infra/Runtime (Docker Compose)"]
-    I1[Service: app<br/>docker/Dockerfile<br/>ENV: OPENAI_API_KEY, GROQ_API_KEY,<br/>DATA_DIR=/data, RUN_PIPELINE]
-    I2[Service: ELT (one-off)<br/>docker/Dockerfile<br/>RUN_PIPELINE=1]
-    V1[[Bind Volume<br/>./data ↔ /data]]
-  end
+%% ===== DATA LAYER =====
+subgraph DATA["Data Layer (DuckDB + Files)"]
+  DB0[("data/srag.duckdb")]
+  BR["bronze.*"]
+  SI["silver.*"]
+  GD1["gold.fct_daily_uf"]
+  GD2["gold.fct_monthly_uf"]
+  RAW[("data/raw/*")]
+end
 
-  %% ---- Connections ----
-  FE1 --> CORE1
-  CORE1 --> CORE2
-  CORE1 --> CORE3
-  CORE1 --> CORE4
-  CORE1 --> CORE5
+%% ===== ELT =====
+subgraph ELT["ELT Pipeline"]
+  E1["Bronze\nscripts/run_bronze.py"]
+  E2["Silver\nscripts/run_silver.py"]
+  E3["Gold\nscripts/run_gold.py"]
+end
 
-  CORE3 --> CORE6
-  CORE4 --> CORE6
-  CORE5 --> CORE6
+%% ===== INFRA =====
+subgraph INFRA["Infra / Runtime (Docker Compose)"]
+  S1["Service: app\ndocker/Dockerfile\nENV: OPENAI_API_KEY, GROQ_API_KEY,\nDATA_DIR=/data, RUN_PIPELINE"]
+  S2["Service: elt (one-off)\ndocker/Dockerfile\nRUN_PIPELINE=1"]
+  VOL["Bind volume\n./data -> /data"]
+end
 
-  CORE6 --> D0
-  D0 --- D1
-  D0 --- D2
-  D0 --- D3
-  D0 --- D4
+%% ===== FLOWS =====
+FE1 -->|prompt / inputs| CORE1
+CORE1 --> CORE2
+CORE1 --> CORE3
+CORE2 -->|calls| CORE3
+CORE3 -->|uses| CORE4
 
-  %% ELT writes into DuckDB
-  ELT1 --> D1
-  ELT2 --> D2
-  ELT3 --> D3
-  ELT3 --> D4
-  R0 --> ELT1
+CORE3 --> T1
+CORE3 --> T2
+CORE3 --> T3
+CORE3 --> T4
 
-  %% Docker & Volumes
-  I1 --> V1
-  I2 --> V1
-  V1 --- D0
-  V1 --- R0
+T1 --> T4
+T2 --> T4
+T3 --> T4
+T4 -->|queries| DB0
 
-  %% Notes/Styles (classes só em nós, não nos subgraphs)
-  classDef core fill:#eef7ff,stroke:#9cc3ff;
-  classDef elt fill:#f7f7e8,stroke:#d9d9a8;
-  classDef data fill:#f0fff4,stroke:#a2d9a2;
-  classDef infra fill:#fff0f6,stroke:#f5a3c7;
+DB0 --- BR
+DB0 --- SI
+DB0 --- GD1
+DB0 --- GD2
 
-  class FE1 core;
-  class CORE1,CORE2,CORE3,CORE4,CORE5,CORE6 core;
-  class ELT1,ELT2,ELT3 elt;
-  class D0,D1,D2,D3,D4,R0 data;
-  class I1,I2,V1 infra;
+RAW --> E1
+E1 --> BR
+E2 --> SI
+E3 --> GD1
+E3 --> GD2
+
+S1 --> VOL
+S2 --> VOL
+VOL --> DB0
+VOL --> RAW
+
+%% ===== STYLES =====
+classDef fe    fill:#e6f7ff,stroke:#9cc3ff,color:#043959
+classDef core  fill:#eef7ff,stroke:#9cc3ff,color:#043959
+classDef tools fill:#f7f7e8,stroke:#d9d9a8,color:#4d4a2a
+classDef data  fill:#f0fff4,stroke:#a2d9a2,color:#185a1b
+classDef elt   fill:#fff8e6,stroke:#ffd27f,color:#5d3e00
+classDef infra fill:#fff0f6,stroke:#f5a3c7,color:#6b1035
+classDef hub   fill:#ffffff,stroke:#7aa7ff,stroke-width:2px
+
+class FE1 fe
+class CORE1,CORE2,CORE3,CORE4 core
+class T1,T2,T3,T4 tools
+class DB0,BR,SI,GD1,GD2,RAW data
+class E1,E2,E3 elt
+class S1,S2,VOL infra
+
+class DB0 hub
+class CORE3 hub
+
+linkStyle default stroke:#7aa7ff,stroke-width:1.5px
 
 
 ```
@@ -212,6 +231,32 @@ DUCKDB_PATH=./data/srag.duckdb
 
 ---
 
+## Como rodar
+### 1. Configurar o .env
+```cp .env.example .env
+# Configurar as API Keys
+```
+### 2. Build da Imagem Docker
+```
+docker compose build
+```
+### 3. Rodar o ELT
+```
+docker compose run --rm etl
+#Esse processo irá demorar um pouco, devido ao download de todos os arquivos CSVs
+```
+### 4. Subir o app
+```
+docker compose up -d app
+docker compose logs -f app
+```
+### Com isso basta Acessar: http://localhost:8501
+### 5. Parar serviços
+```
+docker compose down
+```
+
+
 ## Fluxos de trabalho
 
 - **ELT local**: Ingestão de bases SRAG (bronze) → padronização/limpeza (silver) → fatos & views (gold).  
@@ -220,13 +265,11 @@ DUCKDB_PATH=./data/srag.duckdb
 
 ---
 
-## Melhorias Desejadas
+## Possiveis Melhorias Futuras
 
-- Comparações/rankings por métricas (CFR/UTI%/casos 30d).
 - Melhorar tratamento e Limpeza de Dados.  
 - Mais testes para NL→SQL e *guardrails*.  
 - Cache para notícias.  
-- Dockerizar o Projeto.
-
+- Mais tabelas tratadas e relacionadas.
 ---
 

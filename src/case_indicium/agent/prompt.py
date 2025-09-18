@@ -13,8 +13,9 @@ Notes:
 
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
+import json
 
-
+PROMPT_VERSION = "v1"
 SYSTEM_PROMPT_PT = """
 Você é um analista epidemiológico escrevendo relatórios sobre Síndrome Respiratória Aguda Grave (SRAG).
 Objetivo: produzir um relatório claro, objetivo, auditável e com contexto de notícias recentes.
@@ -83,25 +84,25 @@ def build_user_prompt(
     news: List[Dict[str, Any]],
     notes: Optional[List[str]] = None,
 ) -> str:
-    """
-    Build a compact, JSON-like user prompt that the LLM can safely consume.
-
-    Args:
-        scope: "br" or "uf".
-        uf: UF code when scope == "uf".
-        as_of_day: ISO date string for last available day in data (optional but recommended).
-        kpis: Dict with computed KPIs (matches schemas.KPIs30d fields).
-        daily_series_30d: List of {x: <date>, y: <value>} points (national or UF).
-        monthly_series_12m: List of {x: <month>, y: <value>} points (national or UF).
-        news: List of {title, url, source, published_at, summary?}.
-        notes: Additional caveats to reinforce.
-
-    Returns:
-        A string that prefaces the LLM with structured data and guidance.
-    """
-    # Keep it compact and explicit. We do not use actual JSON dumps to avoid escaping issues in some LLMs.
-    scope_str = f'"scope": "{scope}"' + (f', "uf": "{uf}"' if uf else "")
-    as_of_str = f'"as_of_day": "{as_of_day}"' if as_of_day else '"as_of_day": null'
+    payload = {
+        "payload_version": PROMPT_VERSION,
+        "scope": scope,
+        "uf": uf,
+        "as_of_day": as_of_day,
+        "kpis": kpis,
+        "daily_series_30d": daily_series_30d[:180],   # cap defensivo
+        "monthly_series_12m": monthly_series_12m[:60],
+        "news": [{k: it.get(k) for k in ("title","url","source","published_at","summary")} for it in news[:10]],
+        "notes": (notes or [])[:10],
+        "guidelines": "Siga fielmente as instruções das métricas e limitações fornecidas."
+    }
+    payload_json = json.dumps(payload, ensure_ascii=False)
+    return (
+        "Dados estruturados do relatório (não invente números; use apenas o payload abaixo):\n"
+        f"```json\n{payload_json}\n```\n\n"
+        "Siga estritamente as diretrizes abaixo e gere o relatório com a estrutura pedida.\n"
+        f"{AGENT_METRIC_GUIDELINES_PT}"
+    )
 
     def lines_from_list(label: str, items: List[Dict[str, Any]]) -> str:
         if not items:

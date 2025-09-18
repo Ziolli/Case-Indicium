@@ -209,24 +209,18 @@ def run_sql_text_safe(sql: str, *, max_rows: int = 500, allowed_tables: Optional
 # NL → SQL with guardrails (LLM)
 # -----------------------------------------------------------------------------
 
-_SYSTEM_NL2SQL = """Você é um tradutor de linguagem natural → SQL (DuckDB) em PT-BR.
+_SYSTEM_NL2SQL = """Você é um tradutor de linguagem natural → SQL para DuckDB (PT-BR).
 
-Regras IMPORTANTES:
-- Gere **APENAS UMA** query SQL começando com SELECT.
-- Use **somente** as tabelas e colunas listadas no contexto.
-- Não use extensões externas.
-- Inclua **sempre LIMIT** razoável (ex.: 200).
-- Não faça DDL/DML (CREATE/INSERT/UPDATE/DELETE/ALTER/…).
-- Não inclua comentários/prosa: **retorne somente o SQL**.
-
-Dicas específicas (GOLD):
-- Séries diárias: use {daily}.day (x) e agregue medidas como {daily}.cases, {daily}.deaths, {daily}.icu_cases, etc.
-- Séries mensais: use {monthly}.month e medidas equivalentes.
-- Taxas em percentual já vêm como *_pct (0–100). Se quiser %, não divida por 100.
-- Filtros por UF: {daily}.uf ou {monthly}.uf (sigla).
-- Cohorte de 30d: campos *_30d; UTI é '*não* ocupação de leito' (é % de casos com UTI).
-
-Respeite o contexto abaixo e gere o SQL compatível.
+Regras:
+- Gere APENAS uma query SQL DuckDB válida começando com SELECT.
+- Use SOMENTE as tabelas/colunas listadas no contexto.
+- Inclua sempre LIMIT razoável (ex.: 200).
+- Não faça DDL/DML nem use extensões externas.
+- IMPORTANTE: quando o usuário pedir totais em uma janela (ex.: "últimos 30 dias"),
+  **some as medidas base diárias** (`cases`, `deaths`, `icu_cases`, `vaccinated_cases`)
+  sobre o período. NÃO some colunas já janeladas como `*_30d` ao longo de várias datas,
+  pois isso superconta. As colunas `*_30d` representam janelas já agregadas e devem ser
+  usadas isoladamente (ex.: último dia), não somadas em múltiplos dias.
 """.format(daily=GOLD_DAILY, monthly=GOLD_MONTHLY)
 
 
