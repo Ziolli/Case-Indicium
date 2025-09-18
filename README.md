@@ -1,12 +1,23 @@
-# SRAG — Dashboard & Agente (PT-BR)
+<p align="center">
+  <img src="assets/indicium_logo.png" alt="Indicium" Width="600"
+</p>
 
-> Painel analítico e agente conversacional para SRAG (Síndrome Respiratória Aguda Grave) com **DuckDB**, **Streamlit** e **LLM routing** (OpenAI/Groq). Inclui **ELT** bronze→silver→gold, **consultas NL→SQL** seguras e **coleta de notícias** do Brasil.
+<h1 align="center">SRAG — Dashboard & Agente</h1>
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
-[![DuckDB](https://img.shields.io/badge/DuckDB-embedded-lightgrey.svg)](https://duckdb.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-orange.svg)](https://streamlit.io)
+<p align="center">
+  Painel analítico e agente conversacional para SRAG (Síndrome Respiratória Aguda Grave) com
+  <b>DuckDB</b>, <b>Streamlit</b> e <b>LLM routing</b> (OpenAI/Groq).
+  Inclui <b>ELT</b> bronze→silver→gold, consultas <b>NL→SQL</b> seguras e coleta de <b>notícias</b> do Brasil.
+</p>
 
----
+<p align="center">
+  <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
+  <a href="https://duckdb.org"><img src="https://img.shields.io/badge/DuckDB-embedded-lightgrey.svg" alt="DuckDB"></a>
+  <a href="https://streamlit.io"><img src="https://img.shields.io/badge/Streamlit-App-orange.svg" alt="Streamlit"></a>
+  <img src="https://img.shields.io/badge/Status-Active-success.svg" alt="Project status">
+</p>
+
+<hr/>
 
 ## Visão geral
 
@@ -17,6 +28,7 @@ O projeto entrega dois componentes principais:
 
 2) **Agente SRAG (LLM-routed)**  
    Entende intenção (PT-first), acessa o **dicionário de dados**, busca **notícias recentes** (Tavily), executa **consultas em linguagem natural → SQL** com *guardrails* e gera relatório padrão (BR/UF).
+
 
 ---
 
@@ -199,9 +211,9 @@ case-indicium/
 │  ├─ utils/           # utilitários (config, duckdb, io)
 │  └─ webapp/          # app Streamlit (app.py)
 ├─ assets/             # logos/imagens do app
-├─ data/               # srag.duckdb e raw/ (dev)
+├─ data/               # srag.duckdb e raw/
 ├─ notebooks/          # EDA (dev)
-├─ scripts/            # scripts utilitários (dev)
+├─ scripts/            # scripts utilitários
 ├─ .streamlit/         # config do Streamlit
 ├─ .env.example        # exemplo de variáveis de ambiente
 ├─ pyproject.toml      # deps (Poetry)
@@ -221,19 +233,14 @@ GROQ_API_KEY=gsk_xxxx
 
 # Busca de notícias
 TAVILY_API_KEY=tvly-dev-xxxx
-
-# Roteamento/intents
-INTENT_USE_LLM=1
-
-# Dados
-DUCKDB_PATH=./data/srag.duckdb
 ```
 
 ---
 
 ## Como rodar
 ### 1. Configurar o .env
-```cp .env.example .env
+```
+cp .env.example .env
 # Configurar as API Keys
 ```
 ### 2. Build da Imagem Docker
@@ -243,8 +250,10 @@ docker compose build
 ### 3. Rodar o ELT
 ```
 docker compose run --rm etl
-#Esse processo irá demorar um pouco, devido ao download de todos os arquivos CSVs
+
 ```
+#### Esse processo irá demorar um pouco, devido ao download de todos os arquivos CSVs
+
 ### 4. Subir o app
 ```
 docker compose up -d app

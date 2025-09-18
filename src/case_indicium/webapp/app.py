@@ -298,7 +298,14 @@ for m in st.session_state.messages:
     st.chat_message(m["role"]).markdown(m["content"])
 
 # input do usuário
-user_text = st.chat_input("Pergunte algo…")
+user_text = st.chat_input(
+    "Pergunte algo…",
+    placeholder=(
+        "Ex.: O que você pode fazer? • "
+        "Quantas mortes ocorreram em SP nos últimos 30 dias • "
+        "Quais as últimas notícias sobre SRAG em SC • "
+    ),
+)
 if user_text:
     st.session_state.messages.append({"role": "user", "content": user_text})
     st.chat_message("user").markdown(user_text)
