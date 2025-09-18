@@ -55,7 +55,7 @@ O projeto entrega dois componentes principais:
 
 ---
 
-## Arquitetura (alto nível)
+## Arquitetura
 
 ```mermaid
 graph LR
