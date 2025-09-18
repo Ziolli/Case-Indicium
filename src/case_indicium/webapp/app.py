@@ -30,7 +30,7 @@ from case_indicium.agent.metrics import (
     get_daily_30d_br,
     get_monthly_12m_br,
 )
-from case_indicium.agent.intent_router import handle as agent_handle
+from case_indicium.agent.intent_router import handle as agent_handle, Intent
 from case_indicium.agent.queries import (
     SQL_TOP_UF_CASES_30D,
     SQL_DAILY_30D_UF,
@@ -286,30 +286,33 @@ st.divider()
 
 st.subheader("🤖 Chat do Agente")
 
+
+
+# estado de conversa
+if "last_intent" not in st.session_state:
+    st.session_state.last_intent = None 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# render history
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# render histórico...
+for m in st.session_state.messages:
+    st.chat_message(m["role"]).markdown(m["content"])
 
-# input
-user_text = st.chat_input(
-    "Pergunte algo… (ex.: 'tem novidades de SRAG em Pernambuco?', 'gerar relatório do RJ', 'explicar CFR')"
-)
+# input do usuário
+user_text = st.chat_input("Pergunte algo…")
 if user_text:
     st.session_state.messages.append({"role": "user", "content": user_text})
     st.chat_message("user").markdown(user_text)
 
-    # single entrypoint for routing/answer
     try:
-        reply_md = agent_handle(user_text)
+        reply_md, new_intent = agent_handle(user_text, previous_intent=st.session_state.last_intent)
+        st.session_state.last_intent = new_intent  # mantém contexto para follow-ups
     except Exception as exc:
         reply_md = f"Erro ao processar sua solicitação: `{exc}`"
 
     st.session_state.messages.append({"role": "assistant", "content": reply_md})
     st.chat_message("assistant").markdown(reply_md)
+
 
 # Small env hint
 with st.expander("Diagnóstico rápido de ambiente"):
