@@ -276,7 +276,8 @@ docker compose down
 
 ## Possiveis Melhorias Futuras
 
-- Melhorar tratamento e Limpeza de Dados.  
+- Melhorar tratamento e Limpeza de Dados.
+- Memória da Sessão (Provavelmente Usando Redis)
 - Mais testes para NL→SQL e *guardrails*.  
 - Cache para notícias.  
 - Mais tabelas tratadas e relacionadas.
