@@ -19,12 +19,8 @@ __pycache__/
 .env.*
 
 # Data
-data/srag.duckdb
-data/**/*.parquet
-data/**/*.csv
-data/**/*.json
-!data/raw/
-!data/raw/data_urls.json  # keep the manifest under version control
+data/
+!data/raw/data_urls.json
 
 # Build / Docker
 dist/
