@@ -1,3 +1,4 @@
+# src/case_indicium/webapp/app.py
 """
 Streamlit web app for SRAG: dashboard + agent chat (PT-BR).
 
@@ -6,7 +7,7 @@ Features
 - KPI cards (30d window)
 - Daily (30d) and Monthly (12m) charts (Plotly)
 - Top-UF bar (BR scope)
-- Agent chat routed by intent_router.handle()  ← news/report/explain/trend/greet
+- Agent chat routed by intent_router.handle()  ← greet/news/report/explain/trend/dataqa/nlquery
 
 Run:
   poetry run streamlit run src/case_indicium/webapp/app.py
@@ -42,7 +43,8 @@ from case_indicium.agent.queries import (
 # Bootstrap
 # -----------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-load_dotenv(PROJECT_ROOT / ".env", override=True, encoding="utf-8")
+# carrega .env da raiz do projeto (não sobrescreve variáveis já exportadas)
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=False, encoding="utf-8")
 
 st.set_page_config(
     page_title="SRAG • Dashboard & Agente",
@@ -188,7 +190,7 @@ def load_uf_data(uf: str) -> Dict[str, Any]:
     else:
         row = kpi_df.iloc[0]
         kpi_payload = {
-            "growth_7d_pct": None,  # could be added later via SQL_GROWTH_7D_UF
+            "growth_7d_pct": None,  # (opcional) adicionar via SQL_GROWTH_7D_UF no futuro
             "cfr_closed_30d_pct": row.get("cfr_closed_30d_pct"),
             "icu_rate_30d_pct": row.get("icu_rate_30d_pct"),
             "vaccinated_rate_30d_pct": row.get("vaccinated_rate_30d_pct"),
@@ -204,7 +206,6 @@ def load_uf_data(uf: str) -> Dict[str, Any]:
 # UI — header + sidebar
 # -----------------------------------------------------------------------------
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LOGO = PROJECT_ROOT / "assets" / "indicium_logo.png"
 
 st.title("SRAG — Dashboard & Agente")
@@ -281,20 +282,18 @@ if scope_label == "Brasil":
 st.divider()
 
 # -----------------------------------------------------------------------------
-# Agent chat — uses the new router handle() (no custom branching here)
+# Agent chat — usa intent_router.handle()
 # -----------------------------------------------------------------------------
 
 st.subheader("🤖 Chat do Agente")
 
-
-
 # estado de conversa
 if "last_intent" not in st.session_state:
-    st.session_state.last_intent = None 
+    st.session_state.last_intent: Optional[Intent] = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# render histórico...
+# render histórico
 for m in st.session_state.messages:
     st.chat_message(m["role"]).markdown(m["content"])
 
@@ -307,16 +306,35 @@ if user_text:
     try:
         reply_md, new_intent = agent_handle(user_text, previous_intent=st.session_state.last_intent)
         st.session_state.last_intent = new_intent  # mantém contexto para follow-ups
+    except TypeError:
+        # compat: intent_router antigo sem previous_intent
+        reply_md, new_intent = agent_handle(user_text)
+        st.session_state.last_intent = new_intent if isinstance(new_intent, Intent) else st.session_state.last_intent
     except Exception as exc:
         reply_md = f"Erro ao processar sua solicitação: `{exc}`"
+        new_intent = None
 
+    # resposta principal (markdown)
     st.session_state.messages.append({"role": "assistant", "content": reply_md})
     st.chat_message("assistant").markdown(reply_md)
 
+    # Se for NLQUERY, renderize a tabela inteira (até 1000 linhas) e o SQL
+    if isinstance(new_intent, Intent) and new_intent.kind == "nlquery":
+        try:
+            from case_indicium.agent.tools import query_nl
+            df, sql_used = query_nl(user_text, max_rows=1000)
+            st.caption("Resultado (até 1000 linhas):")
+            st.dataframe(df, use_container_width=True)
+            with st.expander("SQL gerado"):
+                st.code(sql_used, language="sql")
+        except Exception as exc:
+            st.warning(f"Não consegui renderizar a tabela completa: {exc}")
 
-# Small env hint
+# -----------------------------------------------------------------------------
+# Quick env diagnostics
+# -----------------------------------------------------------------------------
+
 with st.expander("Diagnóstico rápido de ambiente"):
-    st.write(
-        f"TAVILY_API_KEY: {'✅' if os.getenv('TAVILY_API_KEY') else '—'} | "
-        f"OPENAI/GROQ: {'✅' if (os.getenv('OPENAI_API_KEY') or os.getenv('GROQ_API_KEY')) else '—'}"
-    )
+    tav = "✅" if os.getenv("TAVILY_API_KEY") else "—"
+    llm = "✅" if (os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY")) else "—"
+    st.write(f"TAVILY_API_KEY: {tav} | OPENAI/GROQ: {llm}")
