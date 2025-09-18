@@ -1,4 +1,6 @@
-# Python
+# -----------------------------
+# Python / notebooks
+# -----------------------------
 __pycache__/
 *.py[cod]
 *.pyo
@@ -6,23 +8,42 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 
-# Poetry / venv
+# -----------------------------
+# Poetry / virtualenv
+# -----------------------------
 .venv/
 .poetry/
 
+# -----------------------------
 # Editors
+# -----------------------------
 .vscode/
 .history/
 
-# Env
+# -----------------------------
+# Env files
+# -----------------------------
 .env
 .env.*
+!.env.example
 
-# Data
-data/
-!data/raw/data_urls.json
+# -----------------------------
+# Data: ignore tudo em data/,
+# mas mantenha a pasta raw/ e seus JSONs de manifesto
+# -----------------------------
+data/**
 
-# Build / Docker
+# Des-ignora o diretório data/ em si (para poder versionar exceções dentro)
+!data/
+
+# Mantém a pasta raw/
+!data/raw/
+
+!data/raw/*.json
+
+!data/.gitkeep
+
+#docker
 dist/
 build/
 .cache/
